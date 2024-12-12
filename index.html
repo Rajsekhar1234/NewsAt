@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="global-news.png" type="image/png">
+  <title>NewsAT</title>
+  <style>
+    body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+
+  .navbar {
+    background-color: #333;
+    overflow: hidden;
+  }
+
+  .navbar ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+  }
+
+  .navbar ul li {
+    margin: 0;
+  }
+
+  .navbar ul li a {
+    color: white;
+    text-decoration: none;
+    padding: 14px 20px;
+    display: block;
+  }
+
+  .navbar ul li a:hover {
+    background-color: #575757;
+  }
+
+  .loading-bar {
+    height: 4px;
+    background-color: red;
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+
+
+  #news-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .news-item {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .news-item img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+  }
+
+  .news-item h3, .news-item p {
+    margin: 10px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .pagination {
+    text-align: center;
+    margin: 20px 0;
+  }
+
+  button {
+    padding: 10px 20px;
+    margin: 5px;
+    border: none;
+    background-color: #007BFF;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+
+  .news-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .loading-gif {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <ul>
+      <li><a href="#" data-category="general">Home</a></li>
+      <li><a href="#" data-category="sports">Sports</a></li>
+      <li><a href="#" data-category="technology">Technology</a></li>
+      <li><a href="#" data-category="education">Education</a></li>
+      <li><a href="#" data-category="science">Science</a></li>
+      <li><a href="#" data-category="health">Health</a></li>
+      <li><a href="#" data-category="entertainment">Entertainment</a></li>
+      <li><a href="#" data-category="business">Business</a></li>
+    </ul>
+  </nav>
+  <div class="loading-bar"></div>
+  <div id="news-container"></div>
+  <div class="pagination">
+    <button id="prev-btn" disabled>Previous</button>
+    <button id="next-btn">Next</button>
+  </div>
+  <div class="loading-gif" id="loading-gif">
+    <img src="loading.gif" alt="Loading...">
+  </div>
+  <script>
+    const apiKey = '9e0c23713b96442a9a75896e191084d8'; // Replace with your News API key
+const newsContainer = document.getElementById('news-container');
+const loadingBar = document.querySelector('.loading-bar');
+const loadingGif = document.getElementById('loading-gif');
+const prevBtn = document.getElementById('prev-btn');
+const nextBtn = document.getElementById('next-btn');
+let currentCategory = 'general';
+let currentPage = 1;
+
+// Disable right-click
+document.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    alert("Right-click is disabled on this website.");
+  });
+
+
+  async function fetchNews(category, page = 1) {
+  showLoading();
+  const proxy = 'https://api.allorigins.win/get?url=';  // Using a CORS proxy
+  const url = `https://newsapi.org/v2/top-headlines?category=${category}&page=${page}&pageSize=12&apiKey=${apiKey}`;
+
+  try {
+    const response = await fetch(proxy + encodeURIComponent(url));
+    const data = await response.json();
+
+    // Log the fetched data to check for issues
+    console.log('Fetched Data:', data);
+
+    // Safeguard in case the response format is not as expected
+    if (data && data.contents) {
+      return JSON.parse(data.contents).articles;  // Parse the JSON response inside 'contents'
+    } else {
+      console.error('Invalid data format:', data);
+      return [];  // Return empty array if data is invalid
+    }
+  } catch (error) {
+    console.error('Error fetching news:', error);
+    hideLoading();
+    return [];  // Return empty array on error
+  }
+}
+
+
+
+function renderNews(articles) {
+  const defaultImage = 'default-image.jpg'; // Path to your default image
+  const defaultHeadline = 'Please wait your news is loading...';
+  const defaultDescription = 'Please wait your news is loading...';
+
+  newsContainer.innerHTML = '';
+  articles.forEach(article => {
+    const newsItem = document.createElement('div');
+    newsItem.className = 'news-item';
+
+    const imageSrc = article.urlToImage || defaultImage;
+    const headline = article.title || defaultHeadline;
+    const description = article.description || defaultDescription;
+    const articleUrl = article.url || '#'; // Use the URL of the news article
+
+    newsItem.innerHTML = `
+      <a href="${articleUrl}" target="_blank" class="news-link">
+        <img src="${imageSrc}" alt="News Image">
+        <h3>${headline}</h3>
+        <p>${description}</p>
+      </a>
+    `;
+    newsContainer.appendChild(newsItem);
+  });
+}
+
+
+
+async function loadNews() {
+  showLoading();
+
+  // Clear the current news content immediately
+  newsContainer.innerHTML = '';
+
+  // Fetch new news but wait before displaying
+  const articles = await fetchNews(currentCategory, currentPage);
+
+  // Delay for the scrolling effect (e.g., 2 seconds)
+  setTimeout(() => {
+    renderNews(articles);
+    hideLoading();
+  }, 10); // 2000ms = 2 seconds
+}
+
+function showLoading() {
+  // Slow down the loading bar animation (4 seconds for full width)
+  loadingBar.style.transition = 'width 0.5s ease';
+  loadingBar.style.width = '100%';
+
+  // Show the loading GIF
+  loadingGif.style.display = 'block';
+}
+
+function hideLoading() {
+  // Reset the loading bar
+  loadingBar.style.transition = 'none';
+  loadingBar.style.width = '0%';
+
+  // Hide the loading GIF
+  loadingGif.style.display = 'none';
+}
+
+
+
+document.querySelectorAll('.navbar a').forEach(link => {
+  link.addEventListener('click', (event) => {
+    event.preventDefault();
+    currentCategory = event.target.dataset.category;
+    currentPage = 1;
+    loadNews();
+  });
+});
+
+prevBtn.addEventListener('click', () => {
+  if (currentPage > 1) {
+    currentPage--;
+    loadNews();
+  }
+});
+
+nextBtn.addEventListener('click', () => {
+  currentPage++;
+  loadNews();
+});
+
+// Load initial news
+loadNews();
+
+  </script>
+</body>
+</html>
